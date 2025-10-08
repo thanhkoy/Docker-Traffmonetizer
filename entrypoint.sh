@@ -9,6 +9,16 @@ log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*"
 }
 
+if [ -z "${TOKEN:-}" ]; then
+  log " >>> An2Kin >>> ERROR: TOKEN environment variable is not set."
+  exit 1
+fi
+
+if [ -z "${DEVNAME:-}" ]; then
+  log " >>> An2Kin >>> ERROR: DEVNAME environment variable is not set."
+  exit 1
+fi
+
 setup_iptables() {
   log " >>> An2Kin >>> Setting up iptables and redsocks..."
   if ! iptables -t nat -L REDSOCKS -n >/dev/null 2>&1; then
@@ -81,23 +91,18 @@ check_ip() {
   fi
 }
 
-if [ -z "${TOKEN:-}" ]; then
-  log " >>> An2Kin >>> ERROR: TOKEN environment variable is not set."
-  exit 1
-fi
+main() {
+  while true; do
+      setup_proxy
+      check_ip
+      log " >>> An2Kin >>> Starting binary..."
+      "$BIN_SDK" start accept --token "$TOKEN" --device-name "$DEVNAME" status statistics &
+      PID=$!
+      log " >>> An2Kin >>> APP PID is $PID"
+      wait $PID
+      log " >>> An2Kin >>> Process exited, restarting..."
+      sleep 5
+  done
+}
 
-if [ -z "${DEVNAME:-}" ]; then
-  log " >>> An2Kin >>> ERROR: DEVNAME environment variable is not set."
-  exit 1
-fi
-
-while true; do
-    setup_proxy
-    check_ip
-    log " >>> An2Kin >>> Starting binary..."
-    "$BIN_SDK" start accept --token "$TOKEN" --device-name "$DEVNAME" status statistics &
-    PID=$!
-    log " >>> An2Kin >>> APP PID is $PID"
-    wait $PID
-    log " >>> An2Kin >>> Process exited, restarting..."
-done
+main
