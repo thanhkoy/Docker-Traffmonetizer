@@ -46,4 +46,4 @@ docker run -d \
 ```
 
 ## Invite Link
-### https://traffmonetizer.com/?aff=92836
+### https://traffmonetizer.com/?aff=915398
