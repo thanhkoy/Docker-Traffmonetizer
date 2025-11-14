@@ -25,7 +25,7 @@ sudo sysctl -w net.core.wmem_max=8000000
 ## Environment variables
 | Variable | Requirement | Description |
 |----------|-------------|-------------|
-| `APPKEY` | Required    | Your Traffmonetizer token. Container exits if not provided. |
+| `TOKEN` | Required    | Your Traffmonetizer token. Container exits if not provided. |
 | `DEVNAME`| Required    | Device name. Container exits if not provided. |
 | `PROXY`  | Optional    | External proxy endpoint in the form `host:port`. |
 
