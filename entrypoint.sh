@@ -4,6 +4,7 @@ set -e
 BIN_SDK="/app/traffmonetizerCLI"
 IP_CHECKER_URL="https://raw.githubusercontent.com/techroy23/IP-Checker/refs/heads/main/app.sh"
 ENABLE_IP_CHECKER="${ENABLE_IP_CHECKER:-false}"
+PROXY_TYPE="${PROXY_TYPE:-socks5}"
 
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*"
@@ -46,11 +47,37 @@ trap cleanup EXIT
 
 setup_proxy() {
   if [ -n "$PROXY" ]; then
-    log " >>> An2Kin >>> External routing via proxy: $PROXY"
+    log " >>> An2Kin >>> External routing via proxy: $PROXY (Type: $PROXY_TYPE)"
 
-    host=$(echo "$PROXY" | cut -d: -f1)
-    port=$(echo "$PROXY" | cut -d: -f2)
+    local user pass host port auth_fields redsocks_type
 
+    if [[ "$PROXY" == *"@"* ]]; then
+      # Định dạng: user:pass@host:port
+      local credentials=$(echo "$PROXY" | cut -d@ -f1)
+      local server=$(echo "$PROXY" | cut -d@ -f2)
+      user=$(echo "$credentials" | cut -d: -f1)
+      pass=$(echo "$credentials" | cut -d: -f2)
+      host=$(echo "$server" | cut -d: -f1)
+      port=$(echo "$server" | cut -d: -f2)
+      auth_fields="login = \"$user\";\n  password = \"$pass\";"
+    else
+      # Định dạng: host:port
+      host=$(echo "$PROXY" | cut -d: -f1)
+      port=$(echo "$PROXY" | cut -d: -f2)
+      auth_fields="" # Không có xác thực
+    fi
+
+    # Xác định loại proxy cho redsocks
+    if [ "$PROXY_TYPE" = "https" ]; then
+      redsocks_type="http-connect" # Dành cho proxy HTTPS (sử dụng phương thức CONNECT)
+    elif [ "$PROXY_TYPE" = "socks5" ]; then
+      redsocks_type="socks5"
+    else
+      log " >>> An2Kin >>> ERROR: Unsupported PROXY_TYPE: $PROXY_TYPE. Use 'socks5' or 'https'."
+      return 1 # Trả về lỗi để ngăn tập lệnh tiếp tục
+    fi
+
+    # Tạo tệp cấu hình redsocks động
     cat >/etc/redsocks.conf <<EOF
 base {
   log_debug = off;
@@ -63,9 +90,14 @@ base {
 redsocks {
   local_ip = 0.0.0.0;
   local_port = 12345;
+  
+  # Thông tin máy chủ proxy
   ip = $host;
   port = $port;
-  type = socks5;
+  
+  # Loại proxy và thông tin xác thực
+  type = $redsocks_type;
+  $auth_fields 
 }
 EOF
 
@@ -93,7 +125,13 @@ check_ip() {
 
 main() {
   while true; do
-      setup_proxy
+      # Báo lỗi nếu setup_proxy thất bại
+      if ! setup_proxy; then
+        log " >>> An2Kin >>> CRITICAL: Failed to set up proxy. Retrying in 30 seconds..."
+        sleep 30
+        continue # Bỏ qua vòng lặp này và thử lại
+      fi
+      
       check_ip
       log " >>> An2Kin >>> Starting binary..."
       "$BIN_SDK" start accept --token "$TOKEN" --device-name "$DEVNAME" status statistics &
