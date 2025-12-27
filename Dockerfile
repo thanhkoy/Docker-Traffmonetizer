@@ -1,20 +1,13 @@
-FROM traffmonetizer/cli_v2:latest AS source
+# Sử dụng image chính chủ mà bạn cung cấp
+FROM traffmonetizer/cli_v2:latest
 
-FROM alpine:latest
+# Thiết lập biến môi trường (Bạn sẽ điền Token thật vào đây hoặc trên Dashboard)
+ENV TOKEN="your_token_here" \
+    DEVNAME="back4app-device"
 
-WORKDIR /app
+# Image gốc của Traffmonetizer thường dùng User root, ta giữ nguyên để tránh lỗi quyền
+USER root
 
-RUN apk update \
-    && apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates ca-certificates-bundle bash curl dos2unix tzdata iptables redsocks zlib libgcc libstdc++ musl icu-libs \
-    && update-ca-certificates
-
-COPY --from=source /app/Cli /app/traffmonetizerCLI
-
-COPY entrypoint.sh /entrypoint.sh
-
-RUN dos2unix /entrypoint.sh
-
-RUN chmod +x /entrypoint.sh /app/traffmonetizerCLI
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Trong image cli_v2, file thực thi thường nằm ngay thư mục gốc hoặc /app
+# Chúng ta sử dụng lệnh find để đảm bảo tìm đúng đường dẫn và chạy nó
+ENTRYPOINT ["/bin/sh", "-c", "./Cli start accept --token ${TOKEN} --device-name ${DEVNAME}"]
